@@ -11,6 +11,20 @@ namespace POS.Persistence.Context
 {
     public class AppDbContext : IdentityDbContext<ApplicationUser>
     {
+        private readonly string? _connectionString;
+
+        public AppDbContext() : base()
+        {
+        }
+
+        public AppDbContext(string connectionString) : base()
+        {
+            _connectionString = connectionString;
+        }
+
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        {
+        }
 
         public DbSet<CompanyInfo> CompanyInfo { get; set; }
         public DbSet<AuditLogs> AuditLogs { get; set; }
@@ -51,17 +65,44 @@ namespace POS.Persistence.Context
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            // Determine the path to your SQLite database file
-            string dbDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "database");
-
-            // Create directory if it doesn't exist
-            if (!Directory.Exists(dbDirectory))
+            if (!optionsBuilder.IsConfigured)
             {
-                Directory.CreateDirectory(dbDirectory);
-            }
+                string connectionString;
 
-            // Set up the SQLite connection
-            optionsBuilder.UseSqlite($"Data Source={dbDirectory}\\pos.db");
+                if (!string.IsNullOrEmpty(_connectionString))
+                {
+                    connectionString = _connectionString;
+                }
+                else
+                {
+                    // Try to load from configuration (for backward compatibility in design-time)
+                    // For now, use fallback to default location
+                    string dbDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "database");
+                    if (!Directory.Exists(dbDirectory))
+                    {
+                        Directory.CreateDirectory(dbDirectory);
+                    }
+                    connectionString = $"Data Source={dbDirectory}\\pos.db";
+                }
+
+                // Configure based on connection string provider
+                if (connectionString.Contains("Data Source") && !connectionString.Contains("Server="))
+                {
+                    // SQLite
+                    optionsBuilder.UseSqlite(connectionString);
+                }
+                else
+                {
+                    // SQL Server
+                    optionsBuilder.UseSqlServer(connectionString);
+                }
+
+                // Enable sensitive data logging in development
+                #if DEBUG
+                optionsBuilder.EnableSensitiveDataLogging();
+                optionsBuilder.EnableDetailedErrors();
+                #endif
+            }
         }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

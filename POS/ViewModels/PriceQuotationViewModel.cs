@@ -269,7 +269,7 @@ namespace POS.ViewModels
             Console.WriteLine("Cancel bill command executed");
         }
 
-        private void AddPriceQuotationWithQuotedProducts()
+        private async void AddPriceQuotationWithQuotedProducts()
         {
             PriceQuotation newPriceQuotation = new PriceQuotation
             {
@@ -282,25 +282,28 @@ namespace POS.ViewModels
                 Subtotal = (decimal)SubTotal,
             };
 
-            // Add the new PriceQuotation to the database
-            _dbContext.PriceQuotations.Add(newPriceQuotation);
-            _dbContext.SaveChanges(); // Save changes to generate the PriceQuotation Id
-
-            foreach (var cartItem in CartItemsList)
+            // Add the new PriceQuotation to the database with transaction management
+            await _transactionManager.ExecuteInTransactionAsync(async () =>
             {
-                QuotedProduct QuotedProduct = new QuotedProduct
+                _dbContext.PriceQuotations.Add(newPriceQuotation);
+                await _dbContext.SaveChangesAsync(); // Save changes to generate the PriceQuotation Id
+
+                foreach (var cartItem in CartItemsList)
                 {
-                    ProductId = cartItem.ProductId,
-                    Quantity = cartItem.Quantity,
-                    SalePrice = cartItem.SalePrice,
-                    Warehouse = SelectedWarehouse,
-                    // Earned = cartItem.Earned,
-                    Details = cartItem.Details
-                };
-                QuotedProduct.PriceQuotationId = newPriceQuotation.Id;
-                _dbContext.QuotedProducts.Add(QuotedProduct);
-                _dbContext.SaveChanges();
-            }
+                    QuotedProduct QuotedProduct = new QuotedProduct
+                    {
+                        ProductId = cartItem.ProductId,
+                        Quantity = cartItem.Quantity,
+                        SalePrice = cartItem.SalePrice,
+                        Warehouse = SelectedWarehouse,
+                        // Earned = cartItem.Earned,
+                        Details = cartItem.Details
+                    };
+                    QuotedProduct.PriceQuotationId = newPriceQuotation.Id;
+                    _dbContext.QuotedProducts.Add(QuotedProduct);
+                }
+                await _dbContext.SaveChangesAsync();
+            }, "CreatePriceQuotation");
 
             // Save changes to persist the QuotedProduct entities associated with the PriceQuotation
             //_dbContext.SaveChanges();

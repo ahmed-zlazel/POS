@@ -296,7 +296,7 @@ namespace POS.ViewModels
             Console.WriteLine("Cancel bill command executed");
         }
 
-        private void AddInvoiceWithSaleProducts()
+        private async void AddInvoiceWithSaleProducts()
         {
             Invoice newInvoice = new Invoice
             {
@@ -309,25 +309,28 @@ namespace POS.ViewModels
                 Subtotal = (decimal)SubTotal,
             };
 
-            // Add the new invoice to the database
-            _dbContext.Invoices.Add(newInvoice);
-            _dbContext.SaveChanges(); // Save changes to generate the Invoice Id
-
-            foreach (var cartItem in CartItemsList)
+            // Add the new invoice to the database with transaction management
+            await _transactionManager.ExecuteInTransactionAsync(async () =>
             {
-                SaleProduct saleProduct = new SaleProduct
+                _dbContext.Invoices.Add(newInvoice);
+                await _dbContext.SaveChangesAsync(); // Save changes to generate the Invoice Id
+
+                foreach (var cartItem in CartItemsList)
                 {
-                    ProductId = cartItem.ProductId,
-                    Quantity = cartItem.Quantity,
-                    SalePrice = cartItem.SalePrice,
-                    Warehouse = SelectedWarehouse,
-                    // Earned = cartItem.Earned,
-                    Details = cartItem.Details
-                };
-                saleProduct.InvoiceId = newInvoice.Id;
-                _dbContext.SaleProducts.Add(saleProduct);
-                _dbContext.SaveChanges();
-            }
+                    SaleProduct saleProduct = new SaleProduct
+                    {
+                        ProductId = cartItem.ProductId,
+                        Quantity = cartItem.Quantity,
+                        SalePrice = cartItem.SalePrice,
+                        Warehouse = SelectedWarehouse,
+                        // Earned = cartItem.Earned,
+                        Details = cartItem.Details
+                    };
+                    saleProduct.InvoiceId = newInvoice.Id;
+                    _dbContext.SaleProducts.Add(saleProduct);
+                }
+                await _dbContext.SaveChangesAsync();
+            }, "CreateSaleInvoice");
 
             // Save changes to persist the SaleProduct entities associated with the Invoice
             //_dbContext.SaveChanges();

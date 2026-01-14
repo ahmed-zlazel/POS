@@ -4,6 +4,7 @@ using POS.Domain.Models;
 using POS.Domain.Models.Products;
 using POS.Persistence.Context;
 using POS.Persistence.Models;
+using POS.Persistence.Transaction;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -706,11 +707,13 @@ namespace POS.ViewModels.Base
         public ICommand ViewPendingBillsCommand { get; }
 
         public AppDbContext _dbContext; // Add a reference to your DbContext
+        protected TransactionManager _transactionManager; // Transaction manager for database operations
 
         public BaseProductsViewModel()
         {
             // Initialize DbContext
             _dbContext = new AppDbContext();
+            _transactionManager = new TransactionManager(_dbContext);
             MaxGoodsChecked = true;
             CategoryList = new ObservableCollection<Category>();
             ProductList = new ObservableCollection<Product>();

@@ -263,7 +263,7 @@ namespace POS.ViewModels
                 }
             }
         }
-        private void AddInvoiceWithPurchaseProducts()
+        private async void AddInvoiceWithPurchaseProducts()
         {
             Purchase newInvoice = new Purchase
             {
@@ -276,24 +276,27 @@ namespace POS.ViewModels
                 Subtotal = (decimal)SubTotal,
             };
 
-            // Add the new invoice to the database
-            _dbContext.Purchases.Add(newInvoice);
-            _dbContext.SaveChanges(); // Save changes to generate the Invoice Id
-
-            foreach (var cartItem in CartItemsList)
+            // Add the new invoice to the database with transaction management
+            await _transactionManager.ExecuteInTransactionAsync(async () =>
             {
-                PurchaseProduct PurchaseProduct = new PurchaseProduct
+                _dbContext.Purchases.Add(newInvoice);
+                await _dbContext.SaveChangesAsync(); // Save changes to generate the Invoice Id
+
+                foreach (var cartItem in CartItemsList)
                 {
-                    ProductId = cartItem.ProductId,
-                    Quantity = cartItem.Quantity,
-                    PurchasePrice = cartItem.PurchasePrice,
-                    Warehouse = SelectedWarehouse,
-                    Details = cartItem.Details
-                };
-                PurchaseProduct.PurchaseId = newInvoice.Id;
-                _dbContext.PurchaseProducts.Add(PurchaseProduct);
-                _dbContext.SaveChanges();
-            }
+                    PurchaseProduct PurchaseProduct = new PurchaseProduct
+                    {
+                        ProductId = cartItem.ProductId,
+                        Quantity = cartItem.Quantity,
+                        PurchasePrice = cartItem.PurchasePrice,
+                        Warehouse = SelectedWarehouse,
+                        Details = cartItem.Details
+                    };
+                    PurchaseProduct.PurchaseId = newInvoice.Id;
+                    _dbContext.PurchaseProducts.Add(PurchaseProduct);
+                }
+                await _dbContext.SaveChangesAsync();
+            }, "CreatePurchaseInvoice");
 
             // Save changes to persist the PurchaseProduct entities associated with the Invoice
             //_dbContext.SaveChanges();
